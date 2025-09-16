@@ -1,3 +1,5 @@
 resultados/
 .vscode/
 Makefile
+*.o
+*.exe
