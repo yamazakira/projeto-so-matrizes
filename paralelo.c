@@ -4,32 +4,40 @@
 #include <string.h>
 #include <windows.h>
 #include <math.h>
+#include <direct.h>
 
-typedef struct {
+typedef struct
+{
     int **M1;
     int **M2;
     int n1, m1, n2, m2;
     int inicio, fim;
     int thread_id;
+    int tamanho; // lado da matriz quadrada
 } ThreadData;
 
-// ---- Função para ler matriz de arquivo ----
-int **ler_matriz(const char *nome_arquivo, int *linhas, int *colunas) {
+// ler matriz de arquivo
+int **ler_matriz(const char *nome_arquivo, int *linhas, int *colunas)
+{
     FILE *fp = fopen(nome_arquivo, "r");
-    if (!fp) {
+    if (!fp)
+    {
         perror("Erro ao abrir arquivo");
         exit(1);
     }
 
     fscanf(fp, "%d %d", linhas, colunas);
 
-    int **matriz = malloc((*linhas) * sizeof(int*));
-    for (int i = 0; i < *linhas; i++) {
+    int **matriz = malloc((*linhas) * sizeof(int *));
+    for (int i = 0; i < *linhas; i++)
+    {
         matriz[i] = malloc((*colunas) * sizeof(int));
     }
 
-    for (int i = 0; i < *linhas; i++) {
-        for (int j = 0; j < *colunas; j++) {
+    for (int i = 0; i < *linhas; i++)
+    {
+        for (int j = 0; j < *colunas; j++)
+        {
             char lixo[20];
             fscanf(fp, "%s %d", lixo, &matriz[i][j]);
         }
@@ -39,49 +47,59 @@ int **ler_matriz(const char *nome_arquivo, int *linhas, int *colunas) {
     return matriz;
 }
 
-// ---- Função da thread ----
-void *calcula_parte(void *arg) {
-    ThreadData *data = (ThreadData*) arg;
+// Função da thread
+void *calcula_parte(void *arg)
+{
+    ThreadData *data = (ThreadData *)arg;
 
-    // Medição de tempo de alta precisão usando QueryPerformanceCounter
     LARGE_INTEGER freq, start, end;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start);
 
-    char nome_arquivo[50];
-    sprintf(nome_arquivo, "./resultados/paralelo/resultado_%d.csv", data->thread_id);
+    // Criar pasta específica para o tamanho da matriz
+    char pasta[150];
+    sprintf(pasta, ".\\resultados\\paralelo\\%dx%d", data->tamanho, data->tamanho);
+    _mkdir(pasta); // cria a pasta se não existir
+
+    char nome_arquivo[200];
+    sprintf(nome_arquivo, "%s\\resultado_%d.csv", pasta, data->thread_id);
+
     FILE *fp = fopen(nome_arquivo, "w");
-    if (!fp) {
+    if (!fp)
+    {
         perror("Erro ao criar arquivo");
         pthread_exit(NULL);
     }
 
     fprintf(fp, "%d %d\n", data->n1, data->m2);
 
-    for (int idx = data->inicio; idx < data->fim; idx++) {
+    for (int idx = data->inicio; idx < data->fim; idx++)
+    {
         int i = idx / data->m2;
         int j = idx % data->m2;
 
         int soma = 0;
-        for (int k = 0; k < data->m1; k++) {
+        for (int k = 0; k < data->m1; k++)
+        {
             soma += data->M1[i][k] * data->M2[k][j];
         }
 
-        fprintf(fp, "c%dx%d %d\n", i+1, j+1, soma);
+        fprintf(fp, "c%dx%d %d\n", i + 1, j + 1, soma);
     }
 
     QueryPerformanceCounter(&end);
     double tempo_ms = (double)(end.QuadPart - start.QuadPart) * 1000.0 / freq.QuadPart;
+    fprintf(fp, "%.6f\n", tempo_ms);
 
-    fprintf(fp, "%.6f\n", tempo_ms); // grava tempo com precisão de 6 casas decimais
     fclose(fp);
-
     pthread_exit(NULL);
+    return NULL;
 }
 
-// ---- Programa principal ----
-int main(int argc, char *argv[]) {
-    if (argc != 4) {
+int main(int argc, char *argv[])
+{
+    if (argc != 4)
+    {
         printf("Uso: %s <arquivoM1> <arquivoM2> <P>\n", argv[0]);
         return 1;
     }
@@ -94,19 +112,25 @@ int main(int argc, char *argv[]) {
     int **M1 = ler_matriz(arq1, &n1, &m1);
     int **M2 = ler_matriz(arq2, &n2, &m2);
 
-    if (m1 != n2) {
+    if (m1 != n2)
+    {
         fprintf(stderr, "Impossível multiplicar: m1 != n2 (%d,%d)\n", m1, n2);
         return 1;
     }
 
+    // Criar pastas pai
+    _mkdir(".\\resultados");
+    _mkdir(".\\resultados\\paralelo");
+
     int total_elem = n1 * m2;
-    int num_threads = (int) ceil((double) total_elem / P);
+    int num_threads = (int)ceil((double)total_elem / P);
 
     pthread_t *threads = malloc(num_threads * sizeof(pthread_t));
     ThreadData *thread_data = malloc(num_threads * sizeof(ThreadData));
 
     // Criação das threads
-    for (int t = 0; t < num_threads; t++) {
+    for (int t = 0; t < num_threads; t++)
+    {
         int inicio = t * P;
         int fim = (inicio + P < total_elem) ? inicio + P : total_elem;
 
@@ -119,20 +143,24 @@ int main(int argc, char *argv[]) {
         thread_data[t].inicio = inicio;
         thread_data[t].fim = fim;
         thread_data[t].thread_id = t;
+        thread_data[t].tamanho = n1; // tamanho da matriz quadrada
 
         pthread_create(&threads[t], NULL, calcula_parte, &thread_data[t]);
     }
 
     // Espera todas as threads
-    for (int t = 0; t < num_threads; t++) {
+    for (int t = 0; t < num_threads; t++)
+    {
         pthread_join(threads[t], NULL);
     }
 
     printf("Concluído. Foram criados %d arquivos de saída.\n", num_threads);
 
     // Libera memória
-    for (int i = 0; i < n1; i++) free(M1[i]);
-    for (int i = 0; i < n2; i++) free(M2[i]);
+    for (int i = 0; i < n1; i++)
+        free(M1[i]);
+    for (int i = 0; i < n2; i++)
+        free(M2[i]);
     free(M1);
     free(M2);
     free(threads);

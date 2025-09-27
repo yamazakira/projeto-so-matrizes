@@ -3,7 +3,9 @@
 #include <windows.h>
 #include <math.h>
 #include <string.h>
+#include <direct.h>
 
+// --- Função para ler matriz de arquivo ---
 int **ler_matriz(const char *nome_arquivo, int *linhas, int *colunas) {
     FILE *fp = fopen(nome_arquivo, "r");
     if (!fp) {
@@ -28,7 +30,8 @@ int **ler_matriz(const char *nome_arquivo, int *linhas, int *colunas) {
     return matriz;
 }
 
-void calcula_parte(const char *arq1, const char *arq2, int inicio, int fim, int id, const char *saida_path) {
+// --- Função executada por cada processo filho ---
+void calcula_parte(const char *arq1, const char *arq2, int inicio, int fim, int id, int tamanho) {
     int n1, m1, n2, m2;
     int **M1 = ler_matriz(arq1, &n1, &m1);
     int **M2 = ler_matriz(arq2, &n2, &m2);
@@ -42,8 +45,15 @@ void calcula_parte(const char *arq1, const char *arq2, int inicio, int fim, int 
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&start);
 
+    // --- CRIA PASTA PARA O TAMANHO ---
+    char pasta[256];
+    sprintf(pasta, ".\\resultados\\processos\\%dx%d", tamanho, tamanho);
+    _mkdir(pasta); // <<< ALTERAÇÃO: cria pasta específica
+
+    // --- NOME DO ARQUIVO NA PASTA ---
     char nome_arquivo[256];
-    sprintf(nome_arquivo, "%s/resultado_%d.csv", saida_path, id);
+    sprintf(nome_arquivo, "%s\\resultado_%d.csv", pasta, id); // <<< ALTERAÇÃO: arquivo na pasta correta
+
     FILE *fp = fopen(nome_arquivo, "w");
     if (!fp) {
         perror("Erro ao criar arquivo");
@@ -74,20 +84,21 @@ void calcula_parte(const char *arq1, const char *arq2, int inicio, int fim, int 
     free(M1);
     free(M2);
 
-    exit(0); // Termina o processo filho
+    exit(0); // <<< ALTERAÇÃO: termina o processo filho
 }
 
 int main(int argc, char *argv[]) {
-    // Modo filho: 7 argumentos
-    if (argc == 7) {
+    // --- Modo filho: agora espera 7 argumentos ---
+    if (argc == 7) { // <<< ALTERAÇÃO: recebe argv[6] = tamanho da matriz
         int inicio = atoi(argv[3]);
         int fim = atoi(argv[4]);
         int id = atoi(argv[5]);
-        calcula_parte(argv[1], argv[2], inicio, fim, id, argv[6]);
+        int tamanho = atoi(argv[6]); // <<< ALTERAÇÃO: captura tamanho
+        calcula_parte(argv[1], argv[2], inicio, fim, id, tamanho);
         return 0;
     }
 
-    // Modo pai: 3 argumentos
+    // --- Modo pai ---
     if (argc != 4) {
         printf("Uso: %s <arquivoM1> <arquivoM2> <P>\n", argv[0]);
         return 1;
@@ -96,9 +107,8 @@ int main(int argc, char *argv[]) {
     char *arq1 = argv[1];
     char *arq2 = argv[2];
     int P = atoi(argv[3]);
-    char saida_path[] = ".\\resultados\\processos";
 
-    // Ler apenas os tamanhos das matrizes
+    // --- Ler apenas os tamanhos das matrizes ---
     FILE *f1 = fopen(arq1, "r");
     FILE *f2 = fopen(arq2, "r");
     if (!f1 || !f2) { perror("Erro ao abrir arquivo"); return 1; }
@@ -123,7 +133,8 @@ int main(int argc, char *argv[]) {
         int fim = (inicio + P < total_elem) ? inicio + P : total_elem;
 
         char cmd[512];
-        sprintf(cmd, "\"%s\" \"%s\" \"%s\" %d %d %d %s", argv[0], arq1, arq2, inicio, fim, t, saida_path);
+        // <<< ALTERAÇÃO: adiciona tamanho como último argumento para o filho
+        sprintf(cmd, "\"%s\" \"%s\" \"%s\" %d %d %d %d", argv[0], arq1, arq2, inicio, fim, t, n1);
 
         if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
             fprintf(stderr, "Erro ao criar processo %d\n", t);

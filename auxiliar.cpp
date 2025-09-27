@@ -23,7 +23,8 @@ int main(int argc, char* argv[]) {
     // cout << "m1: "<< m1 << endl; 
     srand(time(0));
 
-    ofstream matriz1("./resultados/resultadoM1.csv");
+    string nome_m1 = "./resultados/resultadoM1-" + to_string(n1) + ".csv";
+    ofstream matriz1(nome_m1);
     matriz1 << argv[1] << " " << argv[2] << endl;
     // gerar a matriz 1
     for(int altura = 1; altura <= n1; altura++) {
@@ -33,7 +34,8 @@ int main(int argc, char* argv[]) {
     }
     matriz1.close();
 
-    ofstream matriz2("./resultados/resultadoM2.csv");
+    string nome_m2 = "./resultados/resultadoM2-" + to_string(n2) + ".csv";
+    ofstream matriz2(nome_m2);
     matriz2 << argv[3] << " " << argv[4] << endl;
     // clock_t antes = clock();
     // gerar a matriz 2
