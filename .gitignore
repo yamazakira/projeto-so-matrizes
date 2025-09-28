@@ -3,3 +3,4 @@ resultados/
 Makefile
 *.o
 *.exe
+venv

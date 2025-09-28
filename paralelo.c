@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
         pthread_join(threads[t], NULL);
     }
 
-    printf("Concluído. Foram criados %d arquivos de saída.\n", num_threads);
+    printf("Concluido. Foram criados %d arquivos de saida.\n", num_threads);
 
     // Libera memória
     for (int i = 0; i < n1; i++)
